@@ -26,6 +26,7 @@
         
         .desc-column { min-width: 250px; }
 
+        /* Ensure address captures all lines in PDF */
         .pdf-text-fix {
             white-space: pre-wrap;
             word-wrap: break-word;
@@ -33,16 +34,28 @@
             width: 100%;
         }
     </style>
- head>
+</head>
 <body class="bg-gray-100 min-h-screen">
 
-    <div id="auth-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-96">
-            <h2 class="text-2xl font-bold mb-4 text-center text-gray-800">Login</h2>
-            <div class="space-y-4">
-                <input type="email" id="email" placeholder="Email" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                <input type="password" id="password" placeholder="Password" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">Login</button>
+    <div id="auth-overlay" class="fixed inset-0 bg-white flex items-center justify-center z-50">
+        <div class="bg-white p-10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-gray-100 w-96 text-center">
+            <div class="mb-8">
+                <img src="image_1.png" alt="Logo" class="w-24 h-24 mx-auto mb-4 object-contain">
+                <h2 class="text-2xl font-black uppercase tracking-tight text-gray-900">Staff Login</h2>
+                <p class="text-gray-500 text-sm font-medium">EmmaFloAir Invoice Builder</p>
+            </div>
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="doc-subtitle block mb-1 px-1">Email Address</label>
+                    <input type="email" id="email" placeholder="name@email.com" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
+                </div>
+                <div>
+                    <label class="doc-subtitle block mb-1 px-1">Password</label>
+                    <input type="password" id="password" placeholder="••••••••" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
+                </div>
+                <button onclick="handleLogin()" class="w-full bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black transform active:scale-[0.98] transition-all shadow-lg mt-2">
+                    Sign In
+                </button>
             </div>
         </div>
     </div>
