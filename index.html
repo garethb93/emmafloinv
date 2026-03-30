@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmmaFloAir Invoice Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+        }
+
+        .doc-subtitle {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #1f2937;
+        }
+
+        #saved-list::-webkit-scrollbar { width: 4px; }
+        #saved-list::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+        
+        .desc-column { min-width: 250px; }
+
+        .pdf-text-fix {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            display: block;
+            width: 100%;
+        }
+    </style>
+ head>
+<body class="bg-gray-100 min-h-screen">
+
+    <div id="auth-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-96">
+            <h2 class="text-2xl font-bold mb-4 text-center text-gray-800">Login</h2>
+            <div class="space-y-4">
+                <input type="email" id="email" placeholder="Email" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="password" id="password" placeholder="Password" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-8">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            
+            <div class="lg:col-span-1 no-print">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 sticky top-8">
+                    <h2 class="text-lg font-bold mb-4 uppercase">History</h2>
+                    <div id="saved-list" class="space-y-3 max-h-[75vh] overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-3 bg-white p-8 md:p-12 rounded-xl shadow-lg border border-gray-200" id="printable-area">
+                <div class="flex justify-between items-start mb-12">
+                    <div class="flex items-center space-x-6">
+                        <img src="image_1.png" alt="Logo" class="w-32 h-32 object-contain">
+                        <div>
+                            <h1 class="text-4xl font-black uppercase text-gray-900">Invoice</h1>
+                            <p id="invoiceNumberDisplay" class="text-lg font-bold text-gray-500 mt-1">#------</p>
+                            <div class="mt-4">
+                                <label class="doc-subtitle">Issue Date</label>
+                                <input type="date" id="invoiceDate" class="block border-none p-0 text-gray-900 font-bold focus:ring-0">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="no-print flex space-x-2">
+                        <button onclick="createNew()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-blue-700 transition">New</button>
+                        <button onclick="saveInvoice()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm">Save</button>
+                        <button onclick="downloadPDF()" class="bg-gray-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-black transition">Download PDF</button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row justify-between gap-10 mb-10 pb-10 border-b">
+                    <div class="relative flex-1">
+                        <label class="block doc-subtitle mb-1">Invoice To</label>
+                        <input type="text" id="customerName" placeholder="Customer Name" class="w-full text-2xl font-bold border-none outline-none py-1" oninput="showCustomerMemories(this.value)" autocomplete="off">
+                        <div id="customer-memories" class="hidden absolute top-full left-0 w-full bg-white border rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto mt-1"></div>
+                        
+                        <div id="addr-container" class="mt-2">
+                            <textarea id="customerAddress" placeholder="Address" class="w-full border-none p-0 focus:ring-0 outline-none resize-none font-medium text-gray-700 leading-relaxed" rows="4"></textarea>
+                        </div>
+                    </div>
+                    <div class="md:text-right flex-shrink-0">
+                        <label class="block doc-subtitle mb-1">Invoice From</label>
+                        <p class="text-2xl font-bold text-gray-900">EmmaFloAir</p>
+                        <p class="text-lg text-gray-600 font-semibold">Paul Harris</p>
+                    </div>
+                </div>
+
+                <div class="overflow-hidden">
+                    <table class="w-full mb-8 table-fixed"> 
+                        <thead>
+                            <tr class="border-b-2 border-gray-900 text-left doc-subtitle">
+                                <th class="pb-3 w-28">Start</th>
+                                <th class="pb-3 w-28">End</th>
+                                <th class="pb-3 desc-column">Description</th>
+                                <th class="pb-3 w-16 text-right">Hrs</th>
+                                <th class="pb-3 w-20 text-right">Rate (£)</th>
+                                <th class="pb-3 w-24 text-right">Total (£)</th>
+                                <th class="pb-3 w-8 no-print"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="lineItems"></tbody>
+                    </table>
+                </div>
+
+                <button onclick="addItem()" class="no-print text-blue-600 font-bold mb-10 flex items-center">
+                    <i data-lucide="plus" class="w-4 h-4 mr-1"></i> Add Entry
+                </button>
+
+                <div class="flex flex-col md:flex-row justify-between items-start pt-8 border-t-2 border-gray-900">
+                    <div class="w-full md:w-3/5 space-y-4">
+                        <div>
+                            <label class="block doc-subtitle mb-2">Notes & Terms</label>
+                            <textarea id="notes" class="w-full p-3 bg-gray-50 border-none rounded-lg italic" rows="2" placeholder="Additional info..."></textarea>
+                            <p id="paymentTerms" class="mt-2 text-blue-600 font-black text-xs uppercase tracking-widest">Payment due within 30 days</p>
+                        </div>
+                    </div>
+                    
+                    <div class="w-full md:w-52 space-y-2 mt-6 md:mt-0 ml-auto">
+                        <div class="flex justify-between text-xs font-bold text-gray-500 uppercase px-1">
+                            <span>Subtotal</span>
+                            <span id="subtotalDisplay">£0.00</span>
+                        </div>
+                        <div id="vatRow" class="hidden flex justify-between text-xs font-bold text-gray-500 uppercase px-1">
+                            <span>VAT (20%)</span>
+                            <span id="vatDisplay">£0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center p-4 bg-gray-900 text-white rounded-xl">
+                            <span class="text-xs uppercase font-black">Total</span>
+                            <span id="totalAmount" class="text-xl font-black">£0.00</span>
+                        </div>
+                        <div class="no-print flex items-center pt-2">
+                            <input type="checkbox" id="vatCheckbox" class="w-4 h-4" onchange="calculateTotal()">
+                            <label for="vatCheckbox" class="ml-2 text-xs font-bold">Add VAT</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
