@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+// Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyD5mdeDHBTqMgTH7ra8JuLqrpAtjfbQrMI",
     authDomain: "emmaflo-invoice-builder.firebaseapp.com",
@@ -11,6 +12,7 @@ const firebaseConfig = {
     appId: "1:681857224402:web:97332a7db483becaee670b"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -19,6 +21,7 @@ let currentUser = null;
 let currentInvoiceNum = "";
 let customerMemory = [];
 
+// Authentication Listener
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUser = user;
@@ -31,12 +34,18 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
+// Login Function
 window.handleLogin = async () => {
     const email = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
-    try { await signInWithEmailAndPassword(auth, email, pass); } catch (e) { alert("Login failed."); }
+    try { 
+        await signInWithEmailAndPassword(auth, email, pass); 
+    } catch (e) { 
+        alert("Login failed. Please check your credentials."); 
+    }
 };
 
+// Reset for New Invoice
 window.createNew = () => {
     if(!confirm("Start a new invoice?")) return;
     document.getElementById('customerName').value = '';
@@ -50,17 +59,18 @@ window.createNew = () => {
     calculateTotal();
 };
 
+// Add Line Item with Responsive Labels
 window.addItem = (dateStart = '', dateEnd = '', desc = '', qty = 0, price = 0) => {
     const tbody = document.getElementById('lineItems');
     const row = document.createElement('tr');
     row.className = "border-b border-gray-100 hover:bg-gray-50 transition";
     row.innerHTML = `
-        <td class="py-3 pr-1"><input type="date" value="${dateStart}" class="w-full bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 date-start-input"></td>
-        <td class="py-3 pr-1"><input type="date" value="${dateEnd}" class="w-full bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 date-end-input"></td>
-        <td class="py-3"><input type="text" value="${desc}" placeholder="Description" class="w-full bg-transparent border-none focus:ring-0 font-medium truncate desc-input"></td>
-        <td class="py-3"><input type="number" value="${qty}" class="w-full text-right bg-transparent border-none focus:ring-0 qty-input font-bold" oninput="calculateTotal()"></td>
-        <td class="py-3"><input type="number" value="${price}" class="w-full text-right bg-transparent border-none focus:ring-0 price-input font-bold" oninput="calculateTotal()"></td>
-        <td class="py-3 text-right font-black text-gray-900 row-total">£${(qty * price).toFixed(2)}</td>
+        <td data-label="Start" class="py-3 pr-1"><input type="date" value="${dateStart}" class="w-full bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 date-start-input"></td>
+        <td data-label="End" class="py-3 pr-1"><input type="date" value="${dateEnd}" class="w-full bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-600 date-end-input"></td>
+        <td data-label="Description" class="py-3"><input type="text" value="${desc}" placeholder="Description" class="w-full bg-transparent border-none focus:ring-0 font-medium desc-input"></td>
+        <td data-label="Hrs" class="py-3"><input type="number" value="${qty}" class="w-full text-right bg-transparent border-none focus:ring-0 qty-input font-bold" oninput="calculateTotal()"></td>
+        <td data-label="Rate" class="py-3"><input type="number" value="${price}" class="w-full text-right bg-transparent border-none focus:ring-0 price-input font-bold" oninput="calculateTotal()"></td>
+        <td data-label="Total" class="py-3 text-right font-black text-gray-900 row-total">£${(qty * price).toFixed(2)}</td>
         <td class="py-3 text-right no-print">
             <button onclick="this.parentElement.parentElement.remove(); calculateTotal()" class="text-gray-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
         </td>
@@ -70,6 +80,7 @@ window.addItem = (dateStart = '', dateEnd = '', desc = '', qty = 0, price = 0) =
     calculateTotal();
 };
 
+// Calculate Totals and Toggle VAT Display
 window.calculateTotal = () => {
     let subtotal = 0;
     document.querySelectorAll('#lineItems tr').forEach(row => {
@@ -84,6 +95,7 @@ window.calculateTotal = () => {
     const vat = isVat ? subtotal * 0.20 : 0;
     const total = subtotal + vat;
 
+    // Remove VAT text if box is not ticked
     document.getElementById('vatRow').classList.toggle('hidden', !isVat);
     
     document.getElementById('subtotalDisplay').innerText = `£${subtotal.toFixed(2)}`;
@@ -91,6 +103,7 @@ window.calculateTotal = () => {
     document.getElementById('totalAmount').innerText = `£${total.toFixed(2)}`;
 };
 
+// Download PDF with layout fixes
 window.downloadPDF = () => {
     const element = document.getElementById('printable-area');
     const addrArea = document.getElementById('customerAddress');
@@ -121,6 +134,7 @@ window.downloadPDF = () => {
     });
 };
 
+// Save to Firebase
 window.saveInvoice = async () => {
     if (!currentUser) return;
     await saveToCustomerMemory();
@@ -153,6 +167,7 @@ window.saveInvoice = async () => {
     } catch (e) { alert("Error saving."); }
 };
 
+// Load History
 window.loadInvoices = async () => {
     const list = document.getElementById('saved-list');
     try {
@@ -171,6 +186,7 @@ window.loadInvoices = async () => {
     } catch (e) {}
 };
 
+// Open Saved Invoice
 window.openInvoice = (data) => {
     currentInvoiceNum = data.invoiceNumber;
     document.getElementById('invoiceNumberDisplay').innerText = `#${currentInvoiceNum}`;
@@ -184,25 +200,37 @@ window.openInvoice = (data) => {
     calculateTotal();
 };
 
+// Delete Invoice
 window.deleteInvoice = async (id) => {
-    if(confirm("Delete this?")) { await deleteDoc(doc(db, "documents", id)); loadInvoices(); }
+    if(confirm("Delete this?")) { 
+        await deleteDoc(doc(db, "documents", id)); 
+        loadInvoices(); 
+    }
 };
 
+// Generate Invoice Number
 function generateInvoiceNumber() {
     const d = new Date();
     currentInvoiceNum = `${d.getDate().toString().padStart(2,'0')}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getFullYear().toString().slice(-2)}-${Math.floor(Math.random()*90+10)}`;
     document.getElementById('invoiceNumberDisplay').innerText = `#${currentInvoiceNum}`;
 }
 
+// Customer Memory Functions
 async function loadCustomerMemory() {
-    try { const snap = await getDocs(collection(db, "customers")); customerMemory = snap.docs.map(d => d.data()); } catch(e) {}
+    try { 
+        const snap = await getDocs(collection(db, "customers")); 
+        customerMemory = snap.docs.map(d => d.data()); 
+    } catch(e) {}
 }
 
 async function saveToCustomerMemory() {
     const name = document.getElementById('customerName').value;
     const addr = document.getElementById('customerAddress').value;
     if (name.length < 2 || customerMemory.some(c => c.name === name)) return;
-    try { await addDoc(collection(db, "customers"), { name, addr }); loadCustomerMemory(); } catch(e) {}
+    try { 
+        await addDoc(collection(db, "customers"), { name, addr }); 
+        loadCustomerMemory(); 
+    } catch(e) {}
 }
 
 window.showCustomerMemories = (val) => {
@@ -221,5 +249,6 @@ window.autoFill = (name, addr) => {
     document.getElementById('customer-memories').classList.add('hidden');
 };
 
+// Init
 document.getElementById('invoiceDate').valueAsDate = new Date();
 addItem();
