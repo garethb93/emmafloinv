@@ -1,209 +1,132 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyD5mdeDHBTqMgTH7ra8JuLqrpAtjfbQrMI",
-    authDomain: "emmaflo-invoice-builder.firebaseapp.com",
-    projectId: "emmaflo-invoice-builder",
-    storageBucket: "emmaflo-invoice-builder.firebasestorage.app",
-    messagingSenderId: "681857224402",
-    appId: "1:681857224402:web:97332a7db483becaee670b"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-let currentUser = null;
-let currentInvoiceNum = "";
-let customerMemory = [];
-
-// IMMEDIATELY generate a number so the field is never empty
-function generateInvoiceNumber() {
-    const d = new Date();
-    currentInvoiceNum = `${d.getDate().toString().padStart(2,'0')}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getFullYear().toString().slice(-2)}-${Math.floor(Math.random()*90+10)}`;
-    const display = document.getElementById('invoiceNumberDisplay');
-    if (display) display.innerText = `#${currentInvoiceNum}`;
-}
-generateInvoiceNumber();
-
-onAuthStateChanged(auth, (user) => {
-    if (user) {
-        currentUser = user;
-        document.getElementById('auth-overlay').classList.add('hidden');
-        loadInvoices();
-        loadCustomerMemory();
-    } else {
-        document.getElementById('auth-overlay').classList.remove('hidden');
-    }
-});
-
-window.handleLogin = async () => {
-    const email = document.getElementById('email').value;
-    const pass = document.getElementById('password').value;
-    try { await signInWithEmailAndPassword(auth, email, pass); } catch (e) { alert("Login failed."); }
-};
-
-window.addItem = (dateStart = '', dateEnd = '', desc = '', qty = 0, price = 0) => {
-    const tbody = document.getElementById('lineItems');
-    const row = document.createElement('tr');
-    row.innerHTML = `
-        <td data-label="Start" class="col-date"><input type="date" value="${dateStart}" class="w-full bg-transparent border-none text-sm font-bold date-start-input"></td>
-        <td data-label="End" class="col-date"><input type="date" value="${dateEnd}" class="w-full bg-transparent border-none text-sm font-bold date-end-input"></td>
-        <td data-label="Description" class="col-desc"><input type="text" value="${desc}" class="w-full bg-transparent border-none font-semibold desc-input"></td>
-        <td data-label="Hrs" class="col-small"><input type="number" value="${qty}" class="w-full text-right bg-transparent border-none qty-input font-black" oninput="calculateTotal()"></td>
-        <td data-label="Rate" class="col-small"><input type="number" value="${price}" class="w-full text-right bg-transparent border-none price-input font-black" oninput="calculateTotal()"></td>
-        <td data-label="Total" class="col-total text-right font-black row-total">£${(qty * price).toFixed(2)}</td>
-        <td class="no-print"><button onclick="this.parentElement.parentElement.remove(); calculateTotal()"><i data-lucide="trash-2" class="w-4 h-4 text-gray-300"></i></button></td>
-    `;
-    tbody.appendChild(row);
-    if(window.lucide) lucide.createIcons();
-    calculateTotal();
-};
-
-window.calculateTotal = () => {
-    let subtotal = 0;
-    document.querySelectorAll('#lineItems tr').forEach(row => {
-        const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
-        const price = parseFloat(row.querySelector('.price-input').value) || 0;
-        const amount = qty * price;
-        row.querySelector('.row-total').innerText = `£${amount.toFixed(2)}`;
-        subtotal += amount;
-    });
-    const vat = document.getElementById('vatCheckbox').checked ? subtotal * 0.20 : 0;
-    document.getElementById('vatRow').classList.toggle('hidden', vat === 0);
-    document.getElementById('subtotalDisplay').innerText = `£${subtotal.toFixed(2)}`;
-    document.getElementById('vatDisplay').innerText = `£${vat.toFixed(2)}`;
-    document.getElementById('totalAmount').innerText = `£${(subtotal + vat).toFixed(2)}`;
-};
-
-window.saveInvoice = async () => {
-    if (!currentUser) return;
-    const name = document.getElementById('customerName').value.trim();
-    const addr = document.getElementById('customerAddress').value.trim();
-
-    if (name && !customerMemory.some(c => c.name.toLowerCase() === name.toLowerCase())) {
-        try { await addDoc(collection(db, "customers"), { name, addr }); loadCustomerMemory(); } catch(e) {}
-    }
-
-    const items = Array.from(document.querySelectorAll('#lineItems tr')).map(row => ({
-        dateStart: row.querySelector('.date-start-input').value,
-        dateEnd: row.querySelector('.date-end-input').value,
-        desc: row.querySelector('.desc-input').value,
-        qty: row.querySelector('.qty-input').value,
-        price: row.querySelector('.price-input').value
-    }));
-
-    try {
-        await addDoc(collection(db, "documents"), {
-            userId: currentUser.uid,
-            invoiceNumber: currentInvoiceNum,
-            invoiceDate: document.getElementById('invoiceDate').value,
-            customerName: name,
-            customerAddress: addr,
-            notes: document.getElementById('notes').value,
-            vatActive: document.getElementById('vatCheckbox').checked,
-            lineItems: items,
-            total: document.getElementById('totalAmount').innerText,
-            createdAt: serverTimestamp()
-        });
-        alert("Saved!");
-        loadInvoices();
-    } catch (e) { alert("Save error."); }
-};
-
-window.loadInvoices = async () => {
-    const list = document.getElementById('saved-list');
-    const q = query(collection(db, "documents"), orderBy("createdAt", "desc"));
-    const snap = await getDocs(q);
-    list.innerHTML = '';
-    snap.forEach((d) => {
-        const data = d.data();
-        const div = document.createElement('div');
-        div.className = "p-3 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:border-blue-500 transition flex justify-between items-center";
-        div.innerHTML = `<div><p class="font-black text-[10px] text-blue-600">${data.invoiceNumber}</p><p class="text-xs font-bold truncate w-32">${data.customerName}</p></div>`;
-        div.onclick = () => {
-            currentInvoiceNum = data.invoiceNumber;
-            document.getElementById('invoiceNumberDisplay').innerText = `#${currentInvoiceNum}`;
-            document.getElementById('invoiceDate').value = data.invoiceDate;
-            document.getElementById('customerName').value = data.customerName;
-            document.getElementById('customerAddress').value = data.customerAddress;
-            document.getElementById('notes').value = data.notes;
-            document.getElementById('vatCheckbox').checked = data.vatActive;
-            document.getElementById('lineItems').innerHTML = '';
-            data.lineItems.forEach(i => addItem(i.dateStart, i.dateEnd, i.desc, i.qty, i.price));
-            calculateTotal();
-        };
-        list.appendChild(div);
-    });
-};
-
-async function loadCustomerMemory() {
-    try { 
-        const snap = await getDocs(collection(db, "customers")); 
-        customerMemory = snap.docs.map(d => d.data()); 
-    } catch(e) {}
-}
-
-window.showCustomerMemories = (val) => {
-    const container = document.getElementById('customer-memories');
-    if (val.length < 1) { container.classList.add('hidden'); return; }
-    const matches = customerMemory.filter(c => c.name.toLowerCase().includes(val.toLowerCase()));
-    if (matches.length > 0) {
-        container.innerHTML = matches.map(c => `
-            <div class="p-4 hover:bg-blue-50 cursor-pointer text-sm font-bold border-b border-gray-100" 
-                 onclick="window.selectCustomer('${c.name.replace(/'/g, "\\'")}', '${c.addr.replace(/\n/g, "\\n").replace(/'/g, "\\'")}')">
-                ${c.name}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmmaFloAir Invoice Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @media (max-width: 768px) {
+            .responsive-table thead { display: none; }
+            .responsive-table tr { display: block; margin-bottom: 1rem; border: 1px solid #e5e7eb; padding: 1rem; border-radius: 8px; }
+            .responsive-table td { display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #f3f4f6; }
+            .responsive-table td::before { content: attr(data-label); font-weight: 800; font-size: 10px; color: #9ca3af; }
+        }
+        .force-pdf-layout thead { display: table-header-group !important; border-bottom: 2px solid black !important; }
+        .force-pdf-layout tr { display: table-row !important; }
+        .force-pdf-layout td { display: table-cell !important; padding: 8px 4px !important; border-bottom: 1px solid #eee !important; vertical-align: top; }
+        .force-pdf-layout td::before { display: none !important; }
+        .col-date { width: 100px; }
+        .col-desc { width: auto; }
+        .col-small { width: 60px; text-align: right; }
+        .col-total { width: 100px; text-align: right; }
+        .doc-subtitle { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1f2937; }
+        .pdf-text-fix { white-space: pre-wrap; font-size: 14px; color: #374151; }
+        .pdf-hidden-row { display: none !important; }
+        #customer-memories { z-index: 9999 !important; background: white; border: 1px solid #e5e7eb; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="auth-overlay" class="fixed inset-0 bg-white flex items-center justify-center z-[100]">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md mx-4 text-center border border-gray-100">
+            <img src="image_1.png" alt="Logo" class="w-24 h-24 mx-auto mb-6 object-contain">
+            <h2 class="text-2xl font-black uppercase text-gray-900 mb-8">Staff Login</h2>
+            <div class="space-y-4 text-left">
+                <input type="email" id="email" placeholder="Email" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
+                <input type="password" id="password" placeholder="Password" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
+                <button onclick="handleLogin()" class="w-full bg-black text-white py-4 rounded-xl font-bold mt-4">Sign In</button>
             </div>
-        `).join('');
-        container.classList.remove('hidden');
-    } else { container.classList.add('hidden'); }
-};
+        </div>
+    </div>
 
-window.selectCustomer = (name, addr) => {
-    document.getElementById('customerName').value = name;
-    document.getElementById('customerAddress').value = addr;
-    document.getElementById('customer-memories').classList.add('hidden');
-};
+    <div class="container mx-auto p-2 md:p-8">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div class="lg:col-span-1 no-print">
+                <div class="bg-white p-6 rounded-xl border border-gray-200 lg:sticky lg:top-8">
+                    <h2 class="text-md font-bold mb-4 uppercase">Invoice History</h2>
+                    <div id="saved-list" class="space-y-2"></div>
+                </div>
+            </div>
 
-window.downloadPDF = () => {
-    const element = document.getElementById('printable-area');
-    const addrArea = document.getElementById('customerAddress');
-    const container = document.getElementById('addr-container');
-    const rows = document.querySelectorAll('#lineItems tr');
+            <div class="lg:col-span-3 bg-white p-6 md:p-16 rounded-xl shadow-lg border border-gray-200" id="printable-area">
+                <div class="flex justify-between items-start mb-12">
+                    <div class="flex items-center space-x-6">
+                        <img src="image_1.png" alt="Logo" class="w-32 h-32 object-contain">
+                        <div>
+                            <h1 class="text-4xl font-black uppercase text-gray-900">Invoice</h1>
+                            <p id="invoiceNumberDisplay" class="text-lg font-bold text-gray-400 mt-1">#------</p>
+                            <input type="date" id="invoiceDate" class="block border-none p-0 text-gray-900 font-bold focus:ring-0 bg-transparent text-lg mt-2">
+                        </div>
+                    </div>
+                    <div class="no-print flex space-x-2">
+                        <button onclick="createNew()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">New</button>
+                        <button onclick="saveInvoice()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">Save</button>
+                        <button onclick="downloadPDF()" class="bg-black text-white px-4 py-2 rounded-lg font-bold">PDF</button>
+                    </div>
+                </div>
 
-    rows.forEach(row => {
-        if (row.querySelector('.desc-input').value.trim() === "") row.classList.add('pdf-hidden-row');
-    });
+                <div class="flex flex-col md:flex-row justify-between gap-10 mb-12 pb-12 border-b-2 border-gray-50">
+                    <div class="flex-1 relative">
+                        <label class="doc-subtitle block mb-2">Invoice To</label>
+                        <input type="text" id="customerName" placeholder="Start typing name..." class="w-full text-2xl font-black border-none bg-transparent outline-none" oninput="showCustomerMemories(this.value)" autocomplete="off">
+                        <div id="customer-memories" class="hidden absolute left-0 right-0 rounded-lg overflow-hidden"></div>
+                        <div id="addr-container" class="mt-3">
+                            <textarea id="customerAddress" placeholder="Address..." class="w-full border-none p-0 focus:ring-0 bg-transparent outline-none resize-none" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="md:text-right">
+                        <label class="doc-subtitle block mb-2">Invoice From</label>
+                        <p class="text-2xl font-black">EmmaFloAir</p>
+                        <p class="text-lg text-gray-500 font-bold">Paul Harris</p>
+                    </div>
+                </div>
 
-    element.classList.add('force-pdf-layout');
-    const pdfDiv = document.createElement('div');
-    pdfDiv.className = 'pdf-text-fix font-bold text-gray-700';
-    pdfDiv.innerText = addrArea.value;
-    addrArea.style.display = 'none';
-    container.appendChild(pdfDiv);
+                <table id="main-table" class="w-full responsive-table mb-8"> 
+                    <thead>
+                        <tr class="border-b-2 border-gray-900 text-left doc-subtitle">
+                            <th class="pb-4 col-date">Start</th>
+                            <th class="pb-4 col-date">End</th>
+                            <th class="pb-4 col-desc">Description</th>
+                            <th class="pb-4 col-small text-right">Hrs</th>
+                            <th class="pb-4 col-small text-right">Rate</th>
+                            <th class="pb-4 col-total text-right">Total</th>
+                            <th class="pb-4 w-8 no-print"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="lineItems"></tbody>
+                </table>
 
-    const opt = {
-        margin: 10,
-        filename: `Invoice-${currentInvoiceNum}.pdf`,
-        image: { type: 'jpeg', quality: 1 },
-        html2canvas: { scale: 3, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
+                <button onclick="addItem()" class="no-print text-blue-600 font-black mb-12 flex items-center">
+                    <i data-lucide="plus-circle" class="w-5 h-5 mr-2"></i> ADD LINE
+                </button>
 
-    const noPrint = document.querySelectorAll('.no-print');
-    noPrint.forEach(el => el.style.display = 'none');
-
-    html2pdf().set(opt).from(element).save().then(() => {
-        noPrint.forEach(el => el.style.display = '');
-        addrArea.style.display = 'block';
-        pdfDiv.remove();
-        element.classList.remove('force-pdf-layout');
-        rows.forEach(row => row.classList.remove('pdf-hidden-row'));
-    });
-};
-
-window.createNew = () => { location.reload(); };
-document.getElementById('invoiceDate').valueAsDate = new Date();
-addItem();
+                <div class="flex flex-col md:flex-row justify-between pt-12 border-t-4 border-gray-900 gap-12">
+                    <div class="flex-1">
+                        <label class="doc-subtitle block mb-2">Notes</label>
+                        <textarea id="notes" class="w-full p-4 bg-gray-50 border-none rounded-xl italic" rows="2"></textarea>
+                        <div class="mt-4 flex items-center space-x-2 no-print">
+                            <input type="checkbox" id="vatCheckbox" onchange="calculateTotal()">
+                            <label class="text-sm font-bold">Apply 20% VAT</label>
+                        </div>
+                    </div>
+                    <div class="w-full md:w-64 space-y-3">
+                        <div class="flex justify-between text-xs font-bold text-gray-400 uppercase">
+                            <span>Subtotal</span> <span id="subtotalDisplay">£0.00</span>
+                        </div>
+                        <div id="vatRow" class="hidden flex justify-between text-xs font-bold text-gray-400 uppercase">
+                            <span>VAT (20%)</span> <span id="vatDisplay">£0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center p-5 bg-black text-white rounded-2xl">
+                            <span class="text-xs font-black">TOTAL</span>
+                            <span id="totalAmount" class="text-2xl font-black">£0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
