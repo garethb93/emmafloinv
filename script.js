@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyD5mdeDHBTqMgTH7ra8JuLqrpAtjfbQrMI",
@@ -19,13 +19,21 @@ let currentUser = null;
 let currentInvoiceNum = "";
 let customerMemory = [];
 
+// IMMEDIATELY generate a number so the field is never empty
+function generateInvoiceNumber() {
+    const d = new Date();
+    currentInvoiceNum = `${d.getDate().toString().padStart(2,'0')}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getFullYear().toString().slice(-2)}-${Math.floor(Math.random()*90+10)}`;
+    const display = document.getElementById('invoiceNumberDisplay');
+    if (display) display.innerText = `#${currentInvoiceNum}`;
+}
+generateInvoiceNumber();
+
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUser = user;
         document.getElementById('auth-overlay').classList.add('hidden');
         loadInvoices();
         loadCustomerMemory();
-        if (!currentInvoiceNum) generateInvoiceNumber();
     } else {
         document.getElementById('auth-overlay').classList.remove('hidden');
     }
@@ -35,19 +43,6 @@ window.handleLogin = async () => {
     const email = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
     try { await signInWithEmailAndPassword(auth, email, pass); } catch (e) { alert("Login failed."); }
-};
-
-window.createNew = () => {
-    if(!confirm("Start fresh?")) return;
-    document.getElementById('customerName').value = '';
-    document.getElementById('customerAddress').value = '';
-    document.getElementById('notes').value = '';
-    document.getElementById('lineItems').innerHTML = '';
-    document.getElementById('vatCheckbox').checked = false;
-    document.getElementById('invoiceDate').valueAsDate = new Date();
-    generateInvoiceNumber();
-    addItem();
-    calculateTotal();
 };
 
 window.addItem = (dateStart = '', dateEnd = '', desc = '', qty = 0, price = 0) => {
@@ -83,49 +78,11 @@ window.calculateTotal = () => {
     document.getElementById('totalAmount').innerText = `£${(subtotal + vat).toFixed(2)}`;
 };
 
-window.downloadPDF = () => {
-    const element = document.getElementById('printable-area');
-    const addrArea = document.getElementById('customerAddress');
-    const container = document.getElementById('addr-container');
-    const rows = document.querySelectorAll('#lineItems tr');
-
-    rows.forEach(row => {
-        if (row.querySelector('.desc-input').value.trim() === "") row.classList.add('pdf-hidden-row');
-    });
-
-    element.classList.add('force-pdf-layout');
-    const pdfDiv = document.createElement('div');
-    pdfDiv.className = 'pdf-text-fix';
-    pdfDiv.innerText = addrArea.value;
-    addrArea.style.display = 'none';
-    container.appendChild(pdfDiv);
-
-    const opt = {
-        margin: 10,
-        filename: `Invoice-${currentInvoiceNum}.pdf`,
-        image: { type: 'jpeg', quality: 1 },
-        html2canvas: { scale: 3, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    const noPrint = document.querySelectorAll('.no-print');
-    noPrint.forEach(el => el.style.display = 'none');
-
-    html2pdf().set(opt).from(element).save().then(() => {
-        noPrint.forEach(el => el.style.display = '');
-        addrArea.style.display = 'block';
-        pdfDiv.remove();
-        element.classList.remove('force-pdf-layout');
-        rows.forEach(row => row.classList.remove('pdf-hidden-row'));
-    });
-};
-
 window.saveInvoice = async () => {
     if (!currentUser) return;
-    
-    // Save Client to Memory if not already exists
     const name = document.getElementById('customerName').value.trim();
     const addr = document.getElementById('customerAddress').value.trim();
+
     if (name && !customerMemory.some(c => c.name.toLowerCase() === name.toLowerCase())) {
         try { await addDoc(collection(db, "customers"), { name, addr }); loadCustomerMemory(); } catch(e) {}
     }
@@ -164,7 +121,7 @@ window.loadInvoices = async () => {
     snap.forEach((d) => {
         const data = d.data();
         const div = document.createElement('div');
-        div.className = "p-3 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:border-blue-500 transition group flex justify-between items-center";
+        div.className = "p-3 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:border-blue-500 transition flex justify-between items-center";
         div.innerHTML = `<div><p class="font-black text-[10px] text-blue-600">${data.invoiceNumber}</p><p class="text-xs font-bold truncate w-32">${data.customerName}</p></div>`;
         div.onclick = () => {
             currentInvoiceNum = data.invoiceNumber;
@@ -183,15 +140,23 @@ window.loadInvoices = async () => {
 };
 
 async function loadCustomerMemory() {
-    try { const snap = await getDocs(collection(db, "customers")); customerMemory = snap.docs.map(d => d.data()); } catch(e) {}
+    try { 
+        const snap = await getDocs(collection(db, "customers")); 
+        customerMemory = snap.docs.map(d => d.data()); 
+    } catch(e) {}
 }
 
 window.showCustomerMemories = (val) => {
     const container = document.getElementById('customer-memories');
-    if (val.length < 2) { container.classList.add('hidden'); return; }
+    if (val.length < 1) { container.classList.add('hidden'); return; }
     const matches = customerMemory.filter(c => c.name.toLowerCase().includes(val.toLowerCase()));
     if (matches.length > 0) {
-        container.innerHTML = matches.map(c => `<div class="p-4 hover:bg-blue-50 cursor-pointer text-xs font-bold border-b" onclick="selectCustomer('${c.name.replace(/'/g, "\\'")}', '${c.addr.replace(/\n/g, "\\n").replace(/'/g, "\\'")}')">${c.name}</div>`).join('');
+        container.innerHTML = matches.map(c => `
+            <div class="p-4 hover:bg-blue-50 cursor-pointer text-sm font-bold border-b border-gray-100" 
+                 onclick="window.selectCustomer('${c.name.replace(/'/g, "\\'")}', '${c.addr.replace(/\n/g, "\\n").replace(/'/g, "\\'")}')">
+                ${c.name}
+            </div>
+        `).join('');
         container.classList.remove('hidden');
     } else { container.classList.add('hidden'); }
 };
@@ -202,11 +167,43 @@ window.selectCustomer = (name, addr) => {
     document.getElementById('customer-memories').classList.add('hidden');
 };
 
-function generateInvoiceNumber() {
-    const d = new Date();
-    currentInvoiceNum = `${d.getDate().toString().padStart(2,'0')}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getFullYear().toString().slice(-2)}-${Math.floor(Math.random()*90+10)}`;
-    document.getElementById('invoiceNumberDisplay').innerText = `#${currentInvoiceNum}`;
-}
+window.downloadPDF = () => {
+    const element = document.getElementById('printable-area');
+    const addrArea = document.getElementById('customerAddress');
+    const container = document.getElementById('addr-container');
+    const rows = document.querySelectorAll('#lineItems tr');
 
+    rows.forEach(row => {
+        if (row.querySelector('.desc-input').value.trim() === "") row.classList.add('pdf-hidden-row');
+    });
+
+    element.classList.add('force-pdf-layout');
+    const pdfDiv = document.createElement('div');
+    pdfDiv.className = 'pdf-text-fix font-bold text-gray-700';
+    pdfDiv.innerText = addrArea.value;
+    addrArea.style.display = 'none';
+    container.appendChild(pdfDiv);
+
+    const opt = {
+        margin: 10,
+        filename: `Invoice-${currentInvoiceNum}.pdf`,
+        image: { type: 'jpeg', quality: 1 },
+        html2canvas: { scale: 3, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    const noPrint = document.querySelectorAll('.no-print');
+    noPrint.forEach(el => el.style.display = 'none');
+
+    html2pdf().set(opt).from(element).save().then(() => {
+        noPrint.forEach(el => el.style.display = '');
+        addrArea.style.display = 'block';
+        pdfDiv.remove();
+        element.classList.remove('force-pdf-layout');
+        rows.forEach(row => row.classList.remove('pdf-hidden-row'));
+    });
+};
+
+window.createNew = () => { location.reload(); };
 document.getElementById('invoiceDate').valueAsDate = new Date();
 addItem();
