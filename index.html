@@ -26,6 +26,7 @@
         .pdf-text-fix { white-space: pre-wrap; font-size: 14px; color: #374151; }
         .pdf-hidden-row { display: none !important; }
         #customer-memories { z-index: 9999 !important; background: white; border: 1px solid #e5e7eb; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .notes-container { min-height: 80px; margin-bottom: 20px; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -45,7 +46,10 @@
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div class="lg:col-span-1 no-print">
                 <div class="bg-white p-6 rounded-xl border border-gray-200 lg:sticky lg:top-8">
-                    <h2 class="text-md font-bold mb-4 uppercase">Invoice History</h2>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-md font-bold uppercase">History</h2>
+                        <button onclick="createNew()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">New Invoice</button>
+                    </div>
                     <div id="saved-list" class="space-y-2"></div>
                 </div>
             </div>
@@ -61,9 +65,8 @@
                         </div>
                     </div>
                     <div class="no-print flex space-x-2">
-                        <button onclick="createNew()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">New</button>
-                        <button onclick="saveInvoice()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">Save</button>
-                        <button onclick="downloadPDF()" class="bg-black text-white px-4 py-2 rounded-lg font-bold">PDF</button>
+                        <button onclick="saveInvoice()" class="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold">Save</button>
+                        <button onclick="downloadPDF()" class="bg-black text-white px-6 py-2 rounded-lg font-bold">PDF</button>
                     </div>
                 </div>
 
@@ -103,9 +106,10 @@
                 </button>
 
                 <div class="flex flex-col md:flex-row justify-between pt-12 border-t-4 border-gray-900 gap-12">
-                    <div class="flex-1">
-                        <label class="doc-subtitle block mb-2">Notes</label>
+                    <div class="flex-1 notes-container">
+                        <label class="doc-subtitle block mb-2">Notes & Terms</label>
                         <textarea id="notes" class="w-full p-4 bg-gray-50 border-none rounded-xl italic" rows="2"></textarea>
+                        <p class="text-[10px] font-black text-blue-600 mt-4 uppercase tracking-widest">Payment due within 30 days</p>
                         <div class="mt-4 flex items-center space-x-2 no-print">
                             <input type="checkbox" id="vatCheckbox" onchange="calculateTotal()">
                             <label class="text-sm font-bold">Apply 20% VAT</label>
