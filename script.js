@@ -95,7 +95,6 @@ window.calculateTotal = () => {
     const vat = isVat ? subtotal * 0.20 : 0;
     const total = subtotal + vat;
 
-    // Remove VAT text if box is not ticked
     document.getElementById('vatRow').classList.toggle('hidden', !isVat);
     
     document.getElementById('subtotalDisplay').innerText = `£${subtotal.toFixed(2)}`;
@@ -103,12 +102,13 @@ window.calculateTotal = () => {
     document.getElementById('totalAmount').innerText = `£${total.toFixed(2)}`;
 };
 
-// Download PDF with layout fixes
+// Download PDF with Desktop Layout Force
 window.downloadPDF = () => {
     const element = document.getElementById('printable-area');
     const addrArea = document.getElementById('customerAddress');
     const container = document.getElementById('addr-container');
 
+    // Fix for address textarea lines in PDF
     const pdfDiv = document.createElement('div');
     pdfDiv.className = 'pdf-text-fix font-medium text-gray-700 leading-relaxed';
     pdfDiv.innerText = addrArea.value;
@@ -120,7 +120,11 @@ window.downloadPDF = () => {
         margin:       10,
         filename:     `Invoice-${currentInvoiceNum}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true },
+        html2canvas:  { 
+            scale: 2, 
+            useCORS: true, 
+            width: 1200 // Forces desktop table layout in the PDF result
+        },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
