@@ -19,14 +19,12 @@ let currentUser = null;
 let currentInvoiceNum = "";
 let customerMemory = [];
 
-// IMMEDIATELY generate a number so the field is never empty
 function generateInvoiceNumber() {
     const d = new Date();
     currentInvoiceNum = `${d.getDate().toString().padStart(2,'0')}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getFullYear().toString().slice(-2)}-${Math.floor(Math.random()*90+10)}`;
     const display = document.getElementById('invoiceNumberDisplay');
     if (display) display.innerText = `#${currentInvoiceNum}`;
 }
-generateInvoiceNumber();
 
 onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -34,6 +32,7 @@ onAuthStateChanged(auth, (user) => {
         document.getElementById('auth-overlay').classList.add('hidden');
         loadInvoices();
         loadCustomerMemory();
+        if(!currentInvoiceNum) generateInvoiceNumber();
     } else {
         document.getElementById('auth-overlay').classList.remove('hidden');
     }
@@ -205,5 +204,8 @@ window.downloadPDF = () => {
 };
 
 window.createNew = () => { location.reload(); };
+
+// Initial page setup
 document.getElementById('invoiceDate').valueAsDate = new Date();
+generateInvoiceNumber();
 addItem();
