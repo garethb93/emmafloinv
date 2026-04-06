@@ -8,12 +8,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        @media print {
-            .no-print { display: none !important; }
-            body { background: white; }
-        }
-
-        /* Responsive Table Logic */
+        /* Mobile Table Styles */
         @media (max-width: 768px) {
             .responsive-table thead { display: none; }
             .responsive-table tr { 
@@ -22,38 +17,31 @@
                 border: 1px solid #e5e7eb; 
                 padding: 1rem; 
                 border-radius: 0.75rem;
-                background: #f9fafb;
             }
             .responsive-table td { 
                 display: flex; 
                 justify-content: space-between; 
                 padding: 0.5rem 0; 
-                border-bottom: 1px solid #edf2f7;
+                border-bottom: 1px solid #f3f4f6;
             }
-            .responsive-table td:last-child { border-bottom: none; }
             .responsive-table td::before {
                 content: attr(data-label);
                 font-weight: 800;
                 text-transform: uppercase;
                 font-size: 10px;
-                color: #6b7280;
+                color: #9ca3af;
             }
         }
 
-        .doc-subtitle {
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: #1f2937;
-        }
+        /* PDF FORCED LAYOUT - Fixes missing headers and alignment */
+        .force-pdf-layout thead { display: table-header-group !important; }
+        .force-pdf-layout tr { display: table-row !important; border: none !important; padding: 0 !important; }
+        .force-pdf-layout td { display: table-cell !important; border-bottom: 1px solid #e5e7eb !important; padding: 8px 4px !important; }
+        .force-pdf-layout td::before { display: none !important; }
+        .force-pdf-layout input { border: none !important; background: transparent !important; }
 
-        .pdf-text-fix {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            display: block;
-            width: 100%;
-        }
+        .doc-subtitle { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #1f2937; }
+        .pdf-text-fix { white-space: pre-wrap; word-wrap: break-word; display: block; width: 100%; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -62,8 +50,7 @@
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md mx-4 text-center border border-gray-100">
             <img src="image_1.png" alt="Logo" class="w-24 h-24 mx-auto mb-6 object-contain">
             <h2 class="text-2xl font-black uppercase tracking-tight text-gray-900 mb-2">Staff Login</h2>
-            <p class="text-gray-500 text-sm mb-8">EmmaFloAir Invoice Builder</p>
-            <div class="space-y-4 text-left">
+            <div class="space-y-4 text-left mt-8">
                 <div>
                     <label class="doc-subtitle block mb-1">Email</label>
                     <input type="email" id="email" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
@@ -79,12 +66,9 @@
 
     <div class="container mx-auto p-2 md:p-8">
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            
             <div class="lg:col-span-1 no-print">
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 lg:sticky lg:top-8">
-                    <h2 class="text-md font-bold mb-4 uppercase flex items-center">
-                        <i data-lucide="history" class="w-4 h-4 mr-2 text-blue-600"></i> History
-                    </h2>
+                    <h2 class="text-md font-bold mb-4 uppercase">History</h2>
                     <div id="saved-list" class="space-y-2 max-h-[40vh] lg:max-h-[70vh] overflow-y-auto"></div>
                 </div>
             </div>
@@ -94,7 +78,7 @@
                     <div class="flex items-center space-x-6">
                         <img src="image_1.png" alt="Logo" class="w-32 h-32 object-contain">
                         <div>
-                            <h1 class="text-4xl font-black uppercase text-gray-900 tracking-tighter">Invoice</h1>
+                            <h1 class="text-4xl font-black uppercase text-gray-900">Invoice</h1>
                             <p id="invoiceNumberDisplay" class="text-lg font-bold text-gray-400 mt-1">#------</p>
                             <div class="mt-4">
                                 <label class="doc-subtitle">Issue Date</label>
@@ -102,11 +86,10 @@
                             </div>
                         </div>
                     </div>
-                    
                     <div class="no-print flex flex-wrap gap-2">
-                        <button onclick="createNew()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-sm hover:bg-blue-700 transition">New</button>
-                        <button onclick="saveInvoice()" class="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold shadow-sm hover:bg-emerald-700 transition">Save</button>
-                        <button onclick="downloadPDF()" class="bg-black text-white px-6 py-2 rounded-lg font-bold shadow-sm hover:bg-gray-800 transition">PDF</button>
+                        <button onclick="createNew()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-sm hover:bg-blue-700">New</button>
+                        <button onclick="saveInvoice()" class="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold shadow-sm">Save</button>
+                        <button onclick="downloadPDF()" class="bg-black text-white px-6 py-2 rounded-lg font-bold shadow-sm">PDF</button>
                     </div>
                 </div>
 
@@ -127,8 +110,8 @@
                 </div>
 
                 <div class="overflow-x-auto mb-8">
-                    <table class="w-full responsive-table"> 
-                        <thead class="hidden md:table-header-group">
+                    <table id="main-table" class="w-full responsive-table"> 
+                        <thead>
                             <tr class="border-b-2 border-gray-900 text-left doc-subtitle">
                                 <th class="pb-4 w-32">Start</th>
                                 <th class="pb-4 w-32">End</th>
@@ -143,20 +126,19 @@
                     </table>
                 </div>
 
-                <button onclick="addItem()" class="no-print text-blue-600 font-black mb-12 flex items-center hover:text-blue-800 transition">
+                <button onclick="addItem()" class="no-print text-blue-600 font-black mb-12 flex items-center">
                     <i data-lucide="plus-circle" class="w-5 h-5 mr-2"></i> ADD LINE ITEM
                 </button>
 
                 <div class="flex flex-col md:flex-row justify-between items-start pt-12 border-t-4 border-gray-900 gap-12">
                     <div class="w-full md:w-1/2">
                         <label class="block doc-subtitle mb-3 text-blue-600">Notes & Terms</label>
-                        <textarea id="notes" class="w-full p-4 bg-gray-50 border-none rounded-xl italic text-gray-600" rows="3" placeholder="Payment instructions or work details..."></textarea>
+                        <textarea id="notes" class="w-full p-4 bg-gray-50 border-none rounded-xl italic text-gray-600" rows="3"></textarea>
                         <div class="mt-4 flex items-center space-x-2 no-print">
                             <input type="checkbox" id="vatCheckbox" class="w-5 h-5 accent-blue-600" onchange="calculateTotal()">
                             <label for="vatCheckbox" class="text-sm font-bold text-gray-700">Apply 20% VAT</label>
                         </div>
                     </div>
-                    
                     <div class="w-full md:w-64 space-y-3">
                         <div class="flex justify-between text-xs font-bold text-gray-400 uppercase px-2">
                             <span>Subtotal</span>
@@ -176,7 +158,6 @@
             </div>
         </div>
     </div>
-
     <script type="module" src="script.js"></script>
 </body>
 </html>
