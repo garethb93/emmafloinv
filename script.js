@@ -34,8 +34,7 @@ onAuthStateChanged(auth, (user) => {
 window.handleLogin = async () => {
     const email = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
-    try { await signInWithEmailAndPassword(auth, email, pass); } 
-    catch (e) { alert("Login failed."); }
+    try { await signInWithEmailAndPassword(auth, email, pass); } catch (e) { alert("Login failed."); }
 };
 
 window.createNew = () => {
@@ -54,16 +53,16 @@ window.createNew = () => {
 window.addItem = (dateStart = '', dateEnd = '', desc = '', qty = 0, price = 0) => {
     const tbody = document.getElementById('lineItems');
     const row = document.createElement('tr');
-    row.className = "border-b border-gray-50 hover:bg-gray-50 transition md:table-row flex flex-col mb-4 md:mb-0";
+    row.className = "border-b border-gray-50 hover:bg-gray-50 transition";
     row.innerHTML = `
-        <td data-label="Start" class="py-4 md:pr-2"><input type="date" value="${dateStart}" class="w-full bg-transparent border-none focus:ring-0 text-sm font-bold date-start-input"></td>
-        <td data-label="End" class="py-4 md:pr-2"><input type="date" value="${dateEnd}" class="w-full bg-transparent border-none focus:ring-0 text-sm font-bold date-end-input"></td>
+        <td data-label="Start" class="py-4"><input type="date" value="${dateStart}" class="w-full bg-transparent border-none focus:ring-0 text-sm font-bold date-start-input"></td>
+        <td data-label="End" class="py-4"><input type="date" value="${dateEnd}" class="w-full bg-transparent border-none focus:ring-0 text-sm font-bold date-end-input"></td>
         <td data-label="Description" class="py-4"><input type="text" value="${desc}" placeholder="Work description" class="w-full bg-transparent border-none focus:ring-0 font-semibold desc-input"></td>
         <td data-label="Hrs" class="py-4"><input type="number" value="${qty}" class="w-full text-right bg-transparent border-none focus:ring-0 qty-input font-black" oninput="calculateTotal()"></td>
         <td data-label="Rate" class="py-4"><input type="number" value="${price}" class="w-full text-right bg-transparent border-none focus:ring-0 price-input font-black" oninput="calculateTotal()"></td>
         <td data-label="Total" class="py-4 text-right font-black text-gray-900 row-total">£${(qty * price).toFixed(2)}</td>
         <td class="py-4 text-right no-print">
-            <button onclick="this.parentElement.parentElement.remove(); calculateTotal()" class="text-gray-300 hover:text-red-500 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            <button onclick="this.parentElement.parentElement.remove(); calculateTotal()" class="text-gray-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
         </td>
     `;
     tbody.appendChild(row);
@@ -92,11 +91,10 @@ window.downloadPDF = () => {
     const element = document.getElementById('printable-area');
     const addrArea = document.getElementById('customerAddress');
     const container = document.getElementById('addr-container');
-    const table = element.querySelector('.responsive-table');
+    const table = document.getElementById('main-table');
 
-    // FORCE DESKTOP VIEW FOR PDF
-    table.classList.remove('responsive-table');
-
+    // Force PDF layout
+    element.classList.add('force-pdf-layout');
     const pdfDiv = document.createElement('div');
     pdfDiv.className = 'pdf-text-fix font-medium text-gray-600 leading-relaxed';
     pdfDiv.innerText = addrArea.value;
@@ -118,7 +116,7 @@ window.downloadPDF = () => {
         noPrint.forEach(el => el.style.display = '');
         addrArea.style.display = 'block';
         pdfDiv.remove();
-        table.classList.add('responsive-table'); // Restore mobile view
+        element.classList.remove('force-pdf-layout');
     });
 };
 
@@ -160,7 +158,7 @@ window.loadInvoices = async () => {
             const data = d.data();
             const div = document.createElement('div');
             div.className = "p-3 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:border-blue-500 transition group flex justify-between items-center";
-            div.innerHTML = `<div class="flex-grow"><p class="font-black text-[10px] text-blue-600">${data.invoiceNumber || 'NEW'}</p><p class="text-xs font-bold text-gray-800 truncate w-32">${data.customerName}</p></div><button onclick="event.stopPropagation(); window.deleteInvoice('${d.id}')" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><i data-lucide="trash-2" class="w-3 h-3"></i></button>`;
+            div.innerHTML = `<div><p class="font-black text-[10px] text-blue-600">${data.invoiceNumber || 'NEW'}</p><p class="text-xs font-bold text-gray-800 truncate w-32">${data.customerName}</p></div><button onclick="event.stopPropagation(); window.deleteInvoice('${d.id}')" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><i data-lucide="trash-2" class="w-3 h-3"></i></button>`;
             div.onclick = () => openInvoice(data);
             list.appendChild(div);
         });
