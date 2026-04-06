@@ -54,7 +54,7 @@ window.addItem = (dateStart = '', dateEnd = '', desc = '', qty = 0, price = 0) =
         <td data-label="Hrs" class="col-small"><input type="number" value="${qty}" class="w-full text-right bg-transparent border-none qty-input font-black" oninput="calculateTotal()"></td>
         <td data-label="Rate" class="col-small"><input type="number" value="${price}" class="w-full text-right bg-transparent border-none price-input font-black" oninput="calculateTotal()"></td>
         <td data-label="Total" class="col-total text-right font-black row-total">£${(qty * price).toFixed(2)}</td>
-        <td class="no-print bin-column w-8 text-right"><button onclick="this.parentElement.parentElement.remove(); calculateTotal()"><i data-lucide="trash-2" class="w-4 h-4 text-gray-300"></i></button></td>
+        <td class="no-print w-8 text-right"><button onclick="this.parentElement.parentElement.remove(); calculateTotal()"><i data-lucide="trash-2" class="w-4 h-4 text-gray-300"></i></button></td>
     `;
     tbody.appendChild(row);
     if(window.lucide) lucide.createIcons();
@@ -64,8 +64,10 @@ window.addItem = (dateStart = '', dateEnd = '', desc = '', qty = 0, price = 0) =
 window.calculateTotal = () => {
     let subtotal = 0;
     document.querySelectorAll('#lineItems tr').forEach(row => {
-        const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
-        const price = parseFloat(row.querySelector('.price-input').value) || 0;
+        const qtyInput = row.querySelector('.qty-input');
+        const priceInput = row.querySelector('.price-input');
+        const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
+        const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
         const amount = qty * price;
         row.querySelector('.row-total').innerText = `£${amount.toFixed(2)}`;
         subtotal += amount;
@@ -171,20 +173,15 @@ window.downloadPDF = () => {
     const addrArea = document.getElementById('customerAddress');
     const container = document.getElementById('addr-container');
     const rows = document.querySelectorAll('#lineItems tr');
-    const noPrint = document.querySelectorAll('.no-print');
-    const binColumn = document.querySelectorAll('.bin-column');
 
-    // 1. Hide empty rows and elements marked 'no-print'
+    // 1. Mark empty rows to hide
     rows.forEach(row => {
         if (row.querySelector('.desc-input').value.trim() === "") row.classList.add('pdf-hidden-row');
     });
-    noPrint.forEach(el => el.style.display = 'none');
-    
-    // 2. SPECIFICALLY hide the entire bin column (header and cells)
-    binColumn.forEach(el => el.style.display = 'none');
 
-    // 3. Prep layout for PDF
+    // 2. Prep layout for PDF (This triggers CSS rule to hide bins)
     element.classList.add('force-pdf-layout');
+    
     const pdfDiv = document.createElement('div');
     pdfDiv.className = 'pdf-text-fix font-bold text-gray-700';
     pdfDiv.innerText = addrArea.value;
@@ -199,11 +196,9 @@ window.downloadPDF = () => {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // 4. Generate PDF
+    // 3. Generate PDF
     html2pdf().set(opt).from(element).save().then(() => {
-        // 5. Restore everything back to screen view
-        noPrint.forEach(el => el.style.display = '');
-        binColumn.forEach(el => el.style.display = '');
+        // 4. Restore everything back to screen view
         addrArea.style.display = 'block';
         pdfDiv.remove();
         element.classList.remove('force-pdf-layout');
