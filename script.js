@@ -54,7 +54,7 @@ window.addItem = (dateStart = '', dateEnd = '', desc = '', qty = 0, price = 0) =
         <td data-label="Hrs" class="col-small"><input type="number" value="${qty}" class="w-full text-right bg-transparent border-none qty-input font-black" oninput="calculateTotal()"></td>
         <td data-label="Rate" class="col-small"><input type="number" value="${price}" class="w-full text-right bg-transparent border-none price-input font-black" oninput="calculateTotal()"></td>
         <td data-label="Total" class="col-total text-right font-black row-total">£${(qty * price).toFixed(2)}</td>
-        <td class="no-print"><button onclick="this.parentElement.parentElement.remove(); calculateTotal()"><i data-lucide="trash-2" class="w-4 h-4 text-gray-300"></i></button></td>
+        <td class="no-print w-8 text-right"><button onclick="this.parentElement.parentElement.remove(); calculateTotal()"><i data-lucide="trash-2" class="w-4 h-4 text-gray-300"></i></button></td>
     `;
     tbody.appendChild(row);
     if(window.lucide) lucide.createIcons();
@@ -171,11 +171,15 @@ window.downloadPDF = () => {
     const addrArea = document.getElementById('customerAddress');
     const container = document.getElementById('addr-container');
     const rows = document.querySelectorAll('#lineItems tr');
+    const noPrint = document.querySelectorAll('.no-print');
 
+    // 1. Hide empty rows and all elements marked 'no-print' (including bin icon column)
     rows.forEach(row => {
         if (row.querySelector('.desc-input').value.trim() === "") row.classList.add('pdf-hidden-row');
     });
+    noPrint.forEach(el => el.style.display = 'none');
 
+    // 2. Prep layout for PDF
     element.classList.add('force-pdf-layout');
     const pdfDiv = document.createElement('div');
     pdfDiv.className = 'pdf-text-fix font-bold text-gray-700';
@@ -191,10 +195,9 @@ window.downloadPDF = () => {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    const noPrint = document.querySelectorAll('.no-print');
-    noPrint.forEach(el => el.style.display = 'none');
-
+    // 3. Generate PDF
     html2pdf().set(opt).from(element).save().then(() => {
+        // 4. Restore everything back to screen view
         noPrint.forEach(el => el.style.display = '');
         addrArea.style.display = 'block';
         pdfDiv.remove();
@@ -205,7 +208,6 @@ window.downloadPDF = () => {
 
 window.createNew = () => { location.reload(); };
 
-// Initial page setup
 document.getElementById('invoiceDate').valueAsDate = new Date();
 generateInvoiceNumber();
 addItem();
