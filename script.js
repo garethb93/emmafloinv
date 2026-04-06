@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyD5mdeDHBTqMgTH7ra8JuLqrpAtjfbQrMI",
@@ -25,7 +25,7 @@ onAuthStateChanged(auth, (user) => {
         document.getElementById('auth-overlay').classList.add('hidden');
         loadInvoices();
         loadCustomerMemory();
-        generateInvoiceNumber();
+        if (!currentInvoiceNum) generateInvoiceNumber();
     } else {
         document.getElementById('auth-overlay').classList.remove('hidden');
     }
@@ -35,6 +35,19 @@ window.handleLogin = async () => {
     const email = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
     try { await signInWithEmailAndPassword(auth, email, pass); } catch (e) { alert("Login failed."); }
+};
+
+window.createNew = () => {
+    if(!confirm("Start fresh?")) return;
+    document.getElementById('customerName').value = '';
+    document.getElementById('customerAddress').value = '';
+    document.getElementById('notes').value = '';
+    document.getElementById('lineItems').innerHTML = '';
+    document.getElementById('vatCheckbox').checked = false;
+    document.getElementById('invoiceDate').valueAsDate = new Date();
+    generateInvoiceNumber();
+    addItem();
+    calculateTotal();
 };
 
 window.addItem = (dateStart = '', dateEnd = '', desc = '', qty = 0, price = 0) => {
@@ -74,15 +87,12 @@ window.downloadPDF = () => {
     const element = document.getElementById('printable-area');
     const addrArea = document.getElementById('customerAddress');
     const container = document.getElementById('addr-container');
-
-    // FIX 1: Hide empty rows (where description is blank)
     const rows = document.querySelectorAll('#lineItems tr');
+
     rows.forEach(row => {
-        const desc = row.querySelector('.desc-input').value.trim();
-        if (desc === "") row.classList.add('pdf-hidden-row');
+        if (row.querySelector('.desc-input').value.trim() === "") row.classList.add('pdf-hidden-row');
     });
 
-    // FIX 2: Layout Force
     element.classList.add('force-pdf-layout');
     const pdfDiv = document.createElement('div');
     pdfDiv.className = 'pdf-text-fix';
@@ -102,7 +112,6 @@ window.downloadPDF = () => {
     noPrint.forEach(el => el.style.display = 'none');
 
     html2pdf().set(opt).from(element).save().then(() => {
-        // Cleanup
         noPrint.forEach(el => el.style.display = '');
         addrArea.style.display = 'block';
         pdfDiv.remove();
@@ -111,15 +120,93 @@ window.downloadPDF = () => {
     });
 };
 
-// ... Rest of your Firebase Save/Load logic remains the same ...
-window.createNew = () => { location.reload(); };
-window.saveInvoice = async () => { /* Existing save logic */ alert("Saved!"); loadInvoices(); };
-window.loadInvoices = async () => { /* Existing load logic */ };
+window.saveInvoice = async () => {
+    if (!currentUser) return;
+    
+    // Save Client to Memory if not already exists
+    const name = document.getElementById('customerName').value.trim();
+    const addr = document.getElementById('customerAddress').value.trim();
+    if (name && !customerMemory.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+        try { await addDoc(collection(db, "customers"), { name, addr }); loadCustomerMemory(); } catch(e) {}
+    }
+
+    const items = Array.from(document.querySelectorAll('#lineItems tr')).map(row => ({
+        dateStart: row.querySelector('.date-start-input').value,
+        dateEnd: row.querySelector('.date-end-input').value,
+        desc: row.querySelector('.desc-input').value,
+        qty: row.querySelector('.qty-input').value,
+        price: row.querySelector('.price-input').value
+    }));
+
+    try {
+        await addDoc(collection(db, "documents"), {
+            userId: currentUser.uid,
+            invoiceNumber: currentInvoiceNum,
+            invoiceDate: document.getElementById('invoiceDate').value,
+            customerName: name,
+            customerAddress: addr,
+            notes: document.getElementById('notes').value,
+            vatActive: document.getElementById('vatCheckbox').checked,
+            lineItems: items,
+            total: document.getElementById('totalAmount').innerText,
+            createdAt: serverTimestamp()
+        });
+        alert("Saved!");
+        loadInvoices();
+    } catch (e) { alert("Save error."); }
+};
+
+window.loadInvoices = async () => {
+    const list = document.getElementById('saved-list');
+    const q = query(collection(db, "documents"), orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+    list.innerHTML = '';
+    snap.forEach((d) => {
+        const data = d.data();
+        const div = document.createElement('div');
+        div.className = "p-3 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:border-blue-500 transition group flex justify-between items-center";
+        div.innerHTML = `<div><p class="font-black text-[10px] text-blue-600">${data.invoiceNumber}</p><p class="text-xs font-bold truncate w-32">${data.customerName}</p></div>`;
+        div.onclick = () => {
+            currentInvoiceNum = data.invoiceNumber;
+            document.getElementById('invoiceNumberDisplay').innerText = `#${currentInvoiceNum}`;
+            document.getElementById('invoiceDate').value = data.invoiceDate;
+            document.getElementById('customerName').value = data.customerName;
+            document.getElementById('customerAddress').value = data.customerAddress;
+            document.getElementById('notes').value = data.notes;
+            document.getElementById('vatCheckbox').checked = data.vatActive;
+            document.getElementById('lineItems').innerHTML = '';
+            data.lineItems.forEach(i => addItem(i.dateStart, i.dateEnd, i.desc, i.qty, i.price));
+            calculateTotal();
+        };
+        list.appendChild(div);
+    });
+};
+
+async function loadCustomerMemory() {
+    try { const snap = await getDocs(collection(db, "customers")); customerMemory = snap.docs.map(d => d.data()); } catch(e) {}
+}
+
+window.showCustomerMemories = (val) => {
+    const container = document.getElementById('customer-memories');
+    if (val.length < 2) { container.classList.add('hidden'); return; }
+    const matches = customerMemory.filter(c => c.name.toLowerCase().includes(val.toLowerCase()));
+    if (matches.length > 0) {
+        container.innerHTML = matches.map(c => `<div class="p-4 hover:bg-blue-50 cursor-pointer text-xs font-bold border-b" onclick="selectCustomer('${c.name.replace(/'/g, "\\'")}', '${c.addr.replace(/\n/g, "\\n").replace(/'/g, "\\'")}')">${c.name}</div>`).join('');
+        container.classList.remove('hidden');
+    } else { container.classList.add('hidden'); }
+};
+
+window.selectCustomer = (name, addr) => {
+    document.getElementById('customerName').value = name;
+    document.getElementById('customerAddress').value = addr;
+    document.getElementById('customer-memories').classList.add('hidden');
+};
+
 function generateInvoiceNumber() {
     const d = new Date();
     currentInvoiceNum = `${d.getDate().toString().padStart(2,'0')}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getFullYear().toString().slice(-2)}-${Math.floor(Math.random()*90+10)}`;
     document.getElementById('invoiceNumberDisplay').innerText = `#${currentInvoiceNum}`;
 }
-window.showCustomerMemories = (val) => { /* Existing autocomplete logic */ };
+
 document.getElementById('invoiceDate').valueAsDate = new Date();
 addItem();
