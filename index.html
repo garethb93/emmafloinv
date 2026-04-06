@@ -14,10 +14,13 @@
             .responsive-table td { display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #f3f4f6; }
             .responsive-table td::before { content: attr(data-label); font-weight: 800; font-size: 10px; color: #9ca3af; }
         }
+        /* PDF specific overrides */
+        .force-pdf-layout .no-print { display: none !important; }
         .force-pdf-layout thead { display: table-header-group !important; border-bottom: 2px solid black !important; }
         .force-pdf-layout tr { display: table-row !important; }
         .force-pdf-layout td { display: table-cell !important; padding: 8px 4px !important; border-bottom: 1px solid #eee !important; vertical-align: top; }
         .force-pdf-layout td::before { display: none !important; }
+        
         .col-date { width: 100px; }
         .col-desc { width: auto; }
         .col-small { width: 60px; text-align: right; }
@@ -95,7 +98,7 @@
                             <th class="pb-4 col-small text-right">Hrs</th>
                             <th class="pb-4 col-small text-right">Rate</th>
                             <th class="pb-4 col-total text-right">Total</th>
-                            <th class="pb-4 w-8 no-print bin-column"></th>
+                            <th class="pb-4 w-8 no-print"></th>
                         </tr>
                     </thead>
                     <tbody id="lineItems"></tbody>
