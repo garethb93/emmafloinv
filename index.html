@@ -14,25 +14,28 @@
             .responsive-table td { display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #f3f4f6; }
             .responsive-table td::before { content: attr(data-label); font-weight: 800; font-size: 10px; color: #9ca3af; }
         }
-
         .force-pdf-layout thead { display: table-header-group !important; border-bottom: 2px solid black !important; }
         .force-pdf-layout tr { display: table-row !important; }
         .force-pdf-layout td { display: table-cell !important; padding: 8px 4px !important; border-bottom: 1px solid #eee !important; vertical-align: top; }
         .force-pdf-layout td::before { display: none !important; }
-        
         .col-date { width: 100px; }
         .col-desc { width: auto; }
         .col-small { width: 60px; text-align: right; }
         .col-total { width: 100px; text-align: right; }
-
         .doc-subtitle { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #1f2937; }
         .pdf-text-fix { white-space: pre-wrap; font-size: 14px; color: #374151; }
         .pdf-hidden-row { display: none !important; }
+        
+        #customer-memories {
+            z-index: 9999 !important;
+            background: white;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
-
-    <div id="auth-overlay" class="fixed inset-0 bg-white flex items-center justify-center z-50">
+    <div id="auth-overlay" class="fixed inset-0 bg-white flex items-center justify-center z-[100]">
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md mx-4 text-center border border-gray-100">
             <img src="image_1.png" alt="Logo" class="w-24 h-24 mx-auto mb-6 object-contain">
             <h2 class="text-2xl font-black uppercase tracking-tight text-gray-900 mb-8">Staff Login</h2>
@@ -73,10 +76,10 @@
                 <div class="flex flex-col md:flex-row justify-between gap-10 mb-12 pb-12 border-b-2 border-gray-50">
                     <div class="flex-1 relative">
                         <label class="doc-subtitle block mb-2">Invoice To</label>
-                        <input type="text" id="customerName" placeholder="Customer Name" class="w-full text-2xl font-black border-none bg-transparent outline-none" oninput="showCustomerMemories(this.value)" autocomplete="off">
-                        <div id="customer-memories" class="hidden absolute left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 mt-1 max-h-60 overflow-y-auto"></div>
+                        <input type="text" id="customerName" placeholder="Start typing name..." class="w-full text-2xl font-black border-none bg-transparent outline-none" oninput="showCustomerMemories(this.value)" autocomplete="off">
+                        <div id="customer-memories" class="hidden absolute left-0 right-0 rounded-lg overflow-hidden"></div>
                         <div id="addr-container" class="mt-3">
-                            <textarea id="customerAddress" placeholder="Address" class="w-full border-none p-0 focus:ring-0 bg-transparent outline-none resize-none" rows="3"></textarea>
+                            <textarea id="customerAddress" placeholder="Address..." class="w-full border-none p-0 focus:ring-0 bg-transparent outline-none resize-none" rows="3"></textarea>
                         </div>
                     </div>
                     <div class="md:text-right">
